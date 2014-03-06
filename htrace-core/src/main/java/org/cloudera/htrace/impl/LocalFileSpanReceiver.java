@@ -93,7 +93,8 @@ public class LocalFileSpanReceiver implements SpanReceiver {
         values.put("Start", span.getStartTimeMillis());
         values.put("Stop", span.getStopTimeMillis());
         values.put("Description", span.getDescription());
-        values.put("Annotations", span.getKVAnnotations());
+        values.put("KVAnnotations", span.getKVAnnotations());
+        values.put("TLAnnotations", span.getTimelineAnnotations());
         bwriter.write(JSON.toString(values));
         bwriter.flush();
         values.clear();
