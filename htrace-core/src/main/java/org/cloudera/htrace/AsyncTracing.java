@@ -65,6 +65,40 @@ public final class AsyncTracing {
     }
 
     /**
+     * Some times (Most of the times) Wrapping may not work,
+     * as you may be adding callback to the Deferred by returned by function
+     * and may want to create separate span for it
+     * This will help in that case. USAGE:
+     * You get the callback before calling the function and then get the Deferred
+     * from the function and then add this callback before others
+     *
+     * @param description
+     * @return
+     */
+    public static Callback<Object, Object> getWrapCallback(String description) {
+        if (Trace.isTracing()) {
+            Span currentSpan = Trace.currentSpan();
+            Trace.addTimelineAnnotation(description);
+            Span childSpan = null;
+            if (description != null) {
+                childSpan = currentSpan.child(description);
+            }
+            Tracer.getInstance().setCurrentSpan(childSpan);
+            return AsyncTracing.<Object>createCallBack(currentSpan, childSpan);
+        } else {
+            return Callback.PASSTHROUGH;
+        }
+    }
+
+    /**
+     * Helper for the function @getWrapCallback(description) function
+     * @return
+     */
+    public static Callback<Object, Object> getWrapCallback() {
+        return getWrapCallback(null);
+    }
+
+    /**
      * Wraps the original Deferred so that when the callbacks of this Deferred
      * starts executing the current Span will be the Span of the thread it is being
      * executed. After this wrapping the current Span of the thread will be a new Span created
