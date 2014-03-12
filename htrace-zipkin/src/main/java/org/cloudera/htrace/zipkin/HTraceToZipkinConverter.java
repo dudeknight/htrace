@@ -131,8 +131,8 @@ public class HTraceToZipkinConverter {
       annotationList.add(createZipkinAnnotation(ta.getMessage(), ta.getTime(), ep, true));
     }
     // add last zipkin annotation
-    annotationList.add(createZipkinAnnotation(zipkinCoreConstants.SERVER_SEND, hTraceSpan.getStopTimeMillis(), ep, false));
-    annotationList.add(createZipkinAnnotation(zipkinCoreConstants.CLIENT_RECV, hTraceSpan.getStopTimeMillis(), ep, false));
+    annotationList.add(createZipkinAnnotation(zipkinCoreConstants.SERVER_SEND, hTraceSpan.getStopTimeMillis(), ep, true));
+    annotationList.add(createZipkinAnnotation(zipkinCoreConstants.CLIENT_RECV, hTraceSpan.getStopTimeMillis(), ep, true));
     return annotationList;
   }
 

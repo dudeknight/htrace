@@ -95,7 +95,7 @@ public class ZipkinSpanReceiver implements SpanReceiver {
   /**
    * How many errors in a row before we start dropping traces on the floor.
    */
-  private static final int MAX_ERRORS = 10;
+  private static final int MAX_ERRORS = 100;
 
   /**
    * The queue that will get all HTrace spans that are to be sent.
@@ -130,7 +130,7 @@ public class ZipkinSpanReceiver implements SpanReceiver {
   private int collectorPort;
 
   public ZipkinSpanReceiver() {
-    this.queue = new ArrayBlockingQueue<Span>(1000);
+    this.queue = new ArrayBlockingQueue<Span>(15000);
     this.protocolFactory = new TBinaryProtocol.Factory();
 
     tf = new ThreadFactoryBuilder().setDaemon(true)
@@ -149,6 +149,8 @@ public class ZipkinSpanReceiver implements SpanReceiver {
 
     // initialize the endpoint. This endpoint is used while writing the Span.
     initConverter();
+    LOG.info("ZipKin Reciever with host " + collectorHostname);
+    LOG.info("ZipKin Reciever with port " + collectorPort);
 
     int numThreads = conf.getInt("zipkin.num-threads", 1);
 
@@ -163,6 +165,7 @@ public class ZipkinSpanReceiver implements SpanReceiver {
     for (int i = 0; i < numThreads; i++) {
       this.service.submit(new WriteSpanRunnable());
     }
+    LOG.info("Complete initilization.");
   }
 
   /**
@@ -215,10 +218,11 @@ public class ZipkinSpanReceiver implements SpanReceiver {
      */
     @Override
     public void run() {
-
       List<Span> dequeuedSpans = new ArrayList<Span>(MAX_SPAN_BATCH_SIZE);
 
       long errorCount = 0;
+      long sentCount = 500;
+      LOG.info("Start of the run " + running + " : " + queue.size());
 
       while (running.get() || queue.size() > 0) {
         Span firstSpan = null;
@@ -240,6 +244,7 @@ public class ZipkinSpanReceiver implements SpanReceiver {
           // Ignored.
         }
 
+        // LOG.info("runnable  " + dequeuedSpans.size());
         if (dequeuedSpans.isEmpty()) continue;
 
         // If this is the first time through or there was an error re-connect
@@ -258,13 +263,16 @@ public class ZipkinSpanReceiver implements SpanReceiver {
             baos.reset();
             // Write the span to a BAOS
             zipkinSpan.write(streamProtocol);
-
+              sentCount++;
             // Do Base64 encoding and put the string into a log entry.
             LogEntry logEntry =
                 new LogEntry(CATEGORY, Base64.encodeBase64String(baos.toByteArray()));
             entries.add(logEntry);
           }
-
+            if (sentCount % 500 == 0) {
+                LOG.info("sent some zipkin spans " + collectorHostname + ":" + collectorPort);
+                sentCount = 0;
+            }
           // Send the entries
           scribeClient.Log(entries);
           // clear the list for the next time through.
@@ -335,6 +343,7 @@ public class ZipkinSpanReceiver implements SpanReceiver {
    */
   @Override
   public void close() throws IOException {
+    LOG.info("Closing");
     running.set(false);
     service.shutdown();
     try {
@@ -350,8 +359,10 @@ public class ZipkinSpanReceiver implements SpanReceiver {
 
   @Override
   public void receiveSpan(Span span) {
+    // LOG.info("Received span");
     if (running.get()) {
       try {
+        // LOG.info("Running so adding a span..");
         this.queue.add(span);
       } catch (IllegalStateException e) {
         LOG.error("Error trying to append span (" + span.getDescription() + ") to the queue."

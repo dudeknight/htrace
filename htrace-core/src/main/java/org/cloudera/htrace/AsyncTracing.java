@@ -43,19 +43,24 @@ public final class AsyncTracing {
         return new Callback<T, T>() {
             @Override
             public T call(T t) throws Exception {
-                if (Trace.currentSpan() != null && Trace.currentSpan() != childSpan) {
-                    LOG.error("When we are about to stop child Span that was not the current Span");
-                    LOG.error("Please check your Tracing logic");
+                if (Trace.currentSpan() != childSpan) {
+                    /*
+                    LOG.warn("When we are about to stop child Span that was not the current Span");
+                    LOG.warn("Trace Current span " +
+                            (Trace.currentSpan() != null ? Trace.currentSpan().toString() : "null"));
+                    LOG.warn("Trace Child span " +
+                            (childSpan != null ? childSpan.toString() : "null"));
+                            */
                 }
                 if (childSpan != null) {
                     if (childSpan.isRunning()) {
                         childSpan.stop();
                     } else {
-                        LOG.error("ChildSpan was stopped when there " +
+                        /*
+                        LOG.warn("ChildSpan was stopped when there " +
                                 "is no right for the Code to do it");
-                        LOG.error("Semantically this is wrong, " +
-                                "please check your Tracing logic");
-                        LOG.error("Error Span " + (childSpan.toString()));
+                        LOG.warn("Error Span " + (childSpan.toString()));
+                        */
                     }
                 }
                 Tracer.getInstance().setCurrentSpan(currentSpan);
@@ -75,18 +80,22 @@ public final class AsyncTracing {
      * @param description
      * @return
      */
-    public static Callback<Object, Object> getWrapCallback(String description) {
+    public static <T> Callback<T, T> getWrapCallback(String description) {
+
         if (Trace.isTracing()) {
-            Span currentSpan = Trace.currentSpan();
-            Trace.addTimelineAnnotation(description);
-            Span childSpan = null;
-            if (description != null) {
-                childSpan = currentSpan.child(description);
+            synchronized(Trace.currentSpan()) {
+                Span currentSpan = Trace.currentSpan();
+                Trace.addTimelineAnnotation(description);
+                Span childSpan = null;
+                if (description != null) {
+                    childSpan = currentSpan.child(description);
+                }
+                Tracer.getInstance().setCurrentSpan(childSpan);
+                return AsyncTracing.<T>createCallBack(currentSpan, childSpan);
             }
-            Tracer.getInstance().setCurrentSpan(childSpan);
-            return AsyncTracing.<Object>createCallBack(currentSpan, childSpan);
+
         } else {
-            return Callback.PASSTHROUGH;
+            return (Callback<T, T>) Callback.PASSTHROUGH;
         }
     }
 
@@ -180,14 +189,19 @@ public final class AsyncTracing {
      */
     public static TraceScope startRootSpan(String description, Sampler<Object> sampler) {
         if (description == null) {
+            /*
             LOG.error("Common bro you are testing patience here");
             LOG.error("Failing fast here");
+            */
         }
 
         if (Trace.isTracing()) {
+            /*
             LOG.error("Should not be tracing while you try start ROOT Span");
             LOG.error("Please Check your tracing logic");
-            LOG.error("Span that was present " + Tracer.getInstance().currentSpan());
+            LOG.error("Span that was present " +
+                    (Trace.currentSpan() != null ? Trace.currentSpan().toString() : "null"));
+                    */
             Tracer.getInstance().setCurrentSpan(null);
         }
         // The current thread will no tracing at this point
